@@ -2,7 +2,7 @@
 /*
 Plugin Name: Groundhogg Campaign Tagger
 Description: Automatically tags Mailgun emails with the campaign name and ID from Groundhogg Broadcasts.
-Version: 1.2.2
+Version: 1.2.3
 Author: Odysseus Ambut
 Author URI: https://web-mech.net
 GitHub Plugin URI: https://github.com/odzk/groundhogg-campaign-tagger
