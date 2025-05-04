@@ -1,8 +1,8 @@
 <?php
 /*
 Plugin Name: Groundhogg Campaign Tagger
-Description: Automatically tags Mailgun emails with the campaign name from Groundhogg Broadcasts.
-Version: 1.2.1
+Description: Automatically tags Mailgun emails with the campaign name and ID from Groundhogg Broadcasts.
+Version: 1.2.2
 Author: Odysseus Ambut
 Author URI: https://web-mech.net
 GitHub Plugin URI: https://github.com/odzk/groundhogg-campaign-tagger
@@ -33,6 +33,7 @@ add_filter('groundhogg/send_email/wp_mail_args', function ($args, $email, $conta
 
     // Add to headers
     $args['headers'][] = 'X-GH-Campaign-Name: ' . sanitize_text_field($campaign->name);
+    $args['headers'][] = 'X-GH-Campaign-ID: ' . absint($campaign->ID);
 
     return $args;
 
@@ -43,8 +44,6 @@ add_filter('groundhogg/mailgun/send/api/builder', function($builder, $params, $h
     error_log('[GH Mailgun Builder] Params: ' . print_r($params, true));
     error_log('[GH Mailgun Builder] Headers: ' . print_r($headers, true));
     error_log('[GH Mailgun Builder] Builder: ' . print_r($builder, true));
-
-
 
     $contact_id = null;
 
@@ -82,7 +81,10 @@ add_filter('groundhogg/mailgun/send/api/builder', function($builder, $params, $h
                     $campaign = \Groundhogg\Plugin::instance()->dbs->get_db('campaigns')->get($campaign_id);
 
                     if ($campaign && !empty($campaign->name)) {
+                        // Add campaign name as tag
                         $builder->addTag(sanitize_text_field($campaign->name));
+                        // Add campaign ID as tag
+                        $builder->addTag('campaign_' . absint($campaign->ID));
                     }
                 }
             }
