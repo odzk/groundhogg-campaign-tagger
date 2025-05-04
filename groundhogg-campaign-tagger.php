@@ -2,7 +2,7 @@
 /*
 Plugin Name: Groundhogg Campaign Tagger
 Description: Automatically tags Mailgun emails with the campaign name from Groundhogg Broadcasts.
-Version: 1.2
+Version: 1.2.1
 Author: Odysseus Ambut
 Author URI: https://web-mech.net
 GitHub Plugin URI: https://github.com/odzk/groundhogg-campaign-tagger
@@ -38,49 +38,59 @@ add_filter('groundhogg/send_email/wp_mail_args', function ($args, $email, $conta
 
 }, 10, 3);
 
-// Use the builder hook to add multiple tags
 add_filter('groundhogg/mailgun/send/api/builder', function($builder, $params, $headers, $to) {
 
     error_log('[GH Mailgun Builder] Params: ' . print_r($params, true));
+    error_log('[GH Mailgun Builder] Headers: ' . print_r($headers, true));
+    error_log('[GH Mailgun Builder] Builder: ' . print_r($builder, true));
 
-    $email_id = null;
 
-    // Option 1: From params
-    if (!empty($params['email_id'])) {
-        $email_id = absint($params['email_id']);
-    }
 
-    // Option 2: Try to extract from headers if not in params
-    if (!$email_id && is_array($headers)) {
+    $contact_id = null;
+
+    // Try to extract contact ID from headers
+    if (is_array($headers)) {
         foreach ($headers as $header) {
-            if (stripos($header, 'X-Email-ID:') === 0) {
-                $email_id = absint(trim(str_ireplace('X-Email-ID:', '', $header)));
+            if (stripos($header, 'X-GH-Contact-ID:') === 0) {
+                $contact_id = absint(trim(str_ireplace('X-GH-Contact-ID:', '', $header)));
                 break;
             }
         }
     }
 
-    // Now fetch campaign
-    if ($email_id) {
-        $email = new \Groundhogg\Email($email_id);
-        $broadcast_id = absint($email->get_meta('_broadcast_id'));
+    if ($contact_id) {
+        // Load the most recent email log for this contact
+        $email_log = \Groundhogg\Plugin::instance()->dbs->get_db('email_logs')->query([
+            'contact_id' => $contact_id,
+            'orderby' => 'ID',
+            'order' => 'DESC',
+            'limit' => 1,
+        ]);
 
-        if ($broadcast_id) {
-            $broadcast = new \Groundhogg\Broadcast($broadcast_id);
-            $campaign_id = $broadcast->get_campaign_id();
+        if (!empty($email_log)) {
+            $log = $email_log[0];
+            $email_id = absint($log->email_id);
 
-            if ($campaign_id) {
-                $campaign = \Groundhogg\Plugin::instance()->dbs->get_db('campaigns')->get($campaign_id);
+            $email = new \Groundhogg\Email($email_id);
+            $broadcast_id = absint($email->get_meta('_broadcast_id'));
 
-                if ($campaign && !empty($campaign->name)) {
-                    $builder->addTag(sanitize_text_field($campaign->name));
+            if ($broadcast_id) {
+                $broadcast = new \Groundhogg\Broadcast($broadcast_id);
+                $campaign_id = $broadcast->get_campaign_id();
+
+                if ($campaign_id) {
+                    $campaign = \Groundhogg\Plugin::instance()->dbs->get_db('campaigns')->get($campaign_id);
+
+                    if ($campaign && !empty($campaign->name)) {
+                        $builder->addTag(sanitize_text_field($campaign->name));
+                    }
                 }
             }
         }
     }
 
-    // Always tag with something
-    $builder->addTag('Campaign Tagger');
+    // Always tag with "groundhogg"
+    $builder->addTag('groundhogg');
 
     return $builder;
 
