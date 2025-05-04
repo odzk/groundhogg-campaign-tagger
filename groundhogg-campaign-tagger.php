@@ -41,9 +41,28 @@ add_filter('groundhogg/send_email/wp_mail_args', function ($args, $email, $conta
 // Use the builder hook to add multiple tags
 add_filter('groundhogg/mailgun/send/api/builder', function($builder, $params, $headers, $to) {
 
-    // Try to extract campaign name from the email object via broadcast meta
+    error_log('[GH Mailgun Builder] Params: ' . print_r($params, true));
+
+    $email_id = null;
+
+    // Option 1: From params
     if (!empty($params['email_id'])) {
-        $email = new \Groundhogg\Email($params['email_id']);
+        $email_id = absint($params['email_id']);
+    }
+
+    // Option 2: Try to extract from headers if not in params
+    if (!$email_id && is_array($headers)) {
+        foreach ($headers as $header) {
+            if (stripos($header, 'X-Email-ID:') === 0) {
+                $email_id = absint(trim(str_ireplace('X-Email-ID:', '', $header)));
+                break;
+            }
+        }
+    }
+
+    // Now fetch campaign
+    if ($email_id) {
+        $email = new \Groundhogg\Email($email_id);
         $broadcast_id = absint($email->get_meta('_broadcast_id'));
 
         if ($broadcast_id) {
@@ -60,8 +79,8 @@ add_filter('groundhogg/mailgun/send/api/builder', function($builder, $params, $h
         }
     }
 
-    // Always add fallback/default tag
-    $builder->addTag('Campaign Test');
+    // Always tag with something
+    $builder->addTag('Campaign Tagger');
 
     return $builder;
 
